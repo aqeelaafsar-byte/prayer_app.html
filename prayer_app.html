@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Little Muslim: Prayer & Dua Guide</title>
+    <style>
+        :root {
+            --green: #2ecc71;
+            --white: #ffffff;
+            --overlay: rgba(0, 0, 0, 0.85);
+            --card-bg: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: url('https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?q=80&w=2070&auto=format&fit=crop') no-repeat center center fixed;
+            background-size: cover;
+            color: var(--white);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            background: var(--overlay);
+            padding: 20px;
+            border-left: 3px solid var(--green);
+            border-right: 3px solid var(--green);
+            backdrop-filter: blur(8px);
+        }
+
+        /* Typography */
+        h1 { text-align: center; color: var(--green); margin: 10px 0; font-size: 1.8rem; }
+        .arabic { font-family: 'Traditional Arabic', serif; font-size: 1.4rem; color: var(--green); direction: rtl; }
+        .urdu { font-size: 1.1rem; color: #f1c40f; direction: rtl; margin-top: 5px; }
+
+        /* Day Scroller */
+        .day-bar { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 5px; }
+        .day-btn { background: #333; border: none; color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; }
+        .day-btn.active { background: var(--green); color: black; font-weight: bold; }
+
+        /* Prayer Items */
+        .section-label { color: var(--green); font-size: 0.75rem; text-transform: uppercase; margin: 20px 0 10px; border-bottom: 1px solid #444; }
+        .prayer-row { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: var(--card-bg); margin-bottom: 8px; padding: 15px; border-radius: 12px;
+            transition: 0.2s;
+        }
+        .prayer-info-btn { cursor: pointer; flex-grow: 1; text-align: left; background: none; border: none; color: white; font-size: 1rem; }
+
+        input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--green); cursor: pointer; }
+
+        /* Modal / Popup */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 100; overflow-y: auto; padding: 20px; box-sizing: border-box;
+        }
+        .modal-content { max-width: 400px; margin: auto; }
+        .close-btn { color: var(--green); font-size: 2rem; cursor: pointer; float: right; }
+        .info-box { background: #1a1a1a; padding: 15px; border-radius: 10px; margin-top: 15px; border: 1px solid var(--green); }
+        .rakat-badge { background: var(--green); color: black; padding: 2px 8px; border-radius: 5px; font-size: 0.8rem; font-weight: bold; }
+
+        /* Progress Footer */
+        .footer-btns { margin-top: 30px; }
+        .primary-btn { background: var(--green); color: black; width: 100%; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <h1>🕌 Salah Guide & Tracker</h1>
+    
+    <div class="day-bar" id="day-bar"></div>
+
+    <div id="lists">
+        <div class="section-label">Fard Prayers (Required)</div>
+        <div id="farz-list"></div>
+        
+        <div class="section-label">Nafli & Sunnah (Extra Rewards)</div>
+        <div id="nafli-list"></div>
+    </div>
+
+    <div class="footer-btns">
+        <button class="primary-btn" id="done-btn" onclick="checkAllDone()">Check Daily Progress 🏆</button>
+        <button onclick="showWeeklyRecap()" style="width:100%; background:none; border:1px solid #555; color:#aaa; padding:10px; border-radius:10px; cursor:pointer;">Weekly Progress 📊</button>
+    </div>
+</div>
+
+<!-- Prayer Guide Modal -->
+<div id="guide-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <h2 id="modal-title" style="color:var(--green)"></h2>
+        
+        <div class="info-box">
+            <h4 style="margin:0 0 10px 0">How many Rak'ats?</h4>
+            <div id="modal-rakat"></div>
+        </div>
+
+        <div class="info-box">
+            <h4 style="margin:0 0 10px 0">Short Procedure</h4>
+            <p id="modal-steps" style="font-size: 0.9rem; line-height: 1.5; color: #ddd;"></p>
+        </div>
+
+        <div class="info-box" style="text-align: center;">
+            <h4 style="margin:0 0 10px 0">Dua to Memorize</h4>
+            <div class="arabic" id="dua-arabic"></div>
+            <div class="urdu" id="dua-urdu"></div>
+            <p id="dua-eng" style="font-size: 0.85rem; color: #bbb;"></p>
+        </div>
+        
+        <button class="primary-btn" onclick="closeModal()" style="margin-top:20px">Got it, Bismillah!</button>
+    </div>
+</div>
+
+<script>
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    
+    const prayerData = {
+        "Fajr": { rakat: "2 Sunnah, 2 Farz", steps: "1. Niyyah 2. Takbeer 3. Qiyam 4. Ruku 5. Sajdah 6. Tashahhud.", dua: "اللَّهُمَّ بَارِكْ لِي فِي فِجْرِي", urdu: "اے اللہ میرے فجر میں برکت عطا فرما", eng: "O Allah, bless my Fajr.", type: "farz" },
+        "Dhuhr": { rakat: "4 Sunnah, 4 Farz, 2 Sunnah, 2 Nafl", steps: "Prayed exactly like Fajr but with 4 units for Farz.", dua: "الْحَمْدُ لِلَّهِ", urdu: "تمام تعریفیں اللہ کے لیے ہیں", eng: "All praise is for Allah.", type: "farz" },
+        "Asr": { rakat: "4 Sunnah, 4 Farz", steps: "Focus and calm prayer before sunset.", dua: "أَسْتَغْفِرُ اللَّهَ", urdu: "میں اللہ سے معافی مانگتا ہوں", eng: "I seek forgiveness from Allah.", type: "farz" },
+        "Maghrib": { rakat: "3 Farz, 2 Sunnah, 2 Nafl", steps: "Quick prayer after sunset. 3 Rakats for Farz.", dua: "يَا حَيُّ يَا قَيُّومُ", urdu: "اے زندہ اور قائم رہنے والے", eng: "O Ever-Living, O Sustainer.", type: "farz" },
+        "Isha": { rakat: "4 Sunnah, 4 Farz, 2 Sunnah, 2 Nafl, 3 Witr, 2 Nafl", steps: "Final prayer of the day. Include Witr at the end.", dua: "سُبْحَانَ اللَّهِ", urdu: "اللہ پاک ہے", eng: "Glory be to Allah.", type: "farz" },
+        "Tahajjud": { rakat: "2 to 12 Nafl", steps: "Prayed late at night after waking up.", dua: "اللَّهُمَّ اغْفِرْ لِي", urdu: "اے اللہ مجھے معاف کر دے", eng: "O Allah, forgive me.", type: "nafl" },
+        "Ishraq": { rakat: "2 or 4 Nafl", steps: "Prayed 15 mins after sunrise.", dua: "لَا إِلٰهَ إِلَّا اللّٰه", urdu: "اللہ کے سوا کوئی معبود نہیں", eng: "There is no God but Allah.", type: "nafl" },
+        "Chasht (Duha)": { rakat: "2 to 8 Nafl", steps: "Prayed mid-morning when the sun is high.", dua: "اللَّهُمَّ أَعِنِّي عَلَى ذِكْرِكَ", urdu: "اے اللہ میری مدد فرما اپنا ذکر کرنے میں", eng: "O Allah, help me remember You.", type: "nafl" }
+    };
+
+    let currentDay = "Monday";
+    let userData = JSON.parse(localStorage.getItem('kidSalahStore')) || {};
+
+    function init() {
+        const dayBar = document.getElementById('day-bar');
+        days.forEach(day => {
+            const btn = document.createElement('button');
+            btn.className = `day-btn ${day === currentDay ? 'active' : ''}`;
+            btn.innerText = day;
+            btn.onclick = () => { currentDay = day; init(); };
+            dayBar.appendChild(btn);
+        });
+
+        renderList('farz-list', Object.keys(prayerData).filter(k => prayerData[k].type === 'farz'));
+        renderList('nafli-list', Object.keys(prayerData).filter(k => prayerData[k].type === 'nafl'));
+    }
+
+    function renderList(id, keys) {
+        const container = document.getElementById(id);
+        container.innerHTML = '';
+        keys.forEach(key => {
+            const isChecked = userData[currentDay]?.[key] || false;
+            const div = document.createElement('div');
+            div.className = 'prayer-row';
+            div.innerHTML = `
+                <button class="prayer-info-btn" onclick="openGuide('${key}')">
+                    <b>${key}</b> <br>
+                    <small style="color:var(--green)">Click for Guide & Dua 📖</small>
+                </button>
+                <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="save('${key}', this.checked)">
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function openGuide(key) {
+        const p = prayerData[key];
+        document.getElementById('modal-title').innerText = key;
+        document.getElementById('modal-rakat').innerHTML = `<span class="rakat-badge">${p.rakat}</span>`;
+        document.getElementById('modal-steps').innerText = p.steps;
+        document.getElementById('dua-arabic').innerText = p.dua;
+        document.getElementById('dua-urdu').innerText = p.urdu;
+        document.getElementById('dua-eng').innerText = p.eng;
+        document.getElementById('guide-modal').style.display = 'block';
+    }
+
+    function closeModal() { document.getElementById('guide-modal').style.display = 'none'; }
+
+    function save(key, val) {
+        if (!userData[currentDay]) userData[currentDay] = {};
+        userData[currentDay][key] = val;
+        localStorage.setItem('kidSalahStore', JSON.stringify(userData));
+    }
+
+    function checkAllDone() {
+        const count = userData[currentDay] ? Object.values(userData[currentDay]).filter(v => v).length : 0;
+        alert(`MashaAllah! You completed ${count} prayers on ${currentDay}! Keep it up, Hero! 🌟🏆`);
+    }
+
+    function showWeeklyRecap() {
+        let summary = "--- Weekly Progress Recap ---\n";
+        days.forEach(d => {
+            const count = userData[d] ? Object.values(userData[d]).filter(v => v).length : 0;
+            summary += `${d}: ${count} Completed ${count > 5 ? '⭐' : ''}\n`;
+        });
+        alert(summary);
+    }
+
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('guide-modal')) closeModal();
+    }
+
+    init();
+</script>
+
+</body>
+</html>
